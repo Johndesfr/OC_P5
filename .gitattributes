@@ -1,0 +1,20 @@
+# Normalisation automatique des fichiers texte
+* text=auto
+
+# Code source et configuration
+*.py text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+
+# Scripts Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Fichiers binaires
+*.png binary
+*.jpg binary
+*.pdf binary
