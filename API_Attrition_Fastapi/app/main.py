@@ -15,6 +15,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
+@app.get("/")
+def accueil():
+    return {
+        "message": "API de prédiction du départ des salariés",
+        "version": "1.0",
+        "endpoints": {
+            "health": "/health",
+            "model_info": "/model-info",
+            "prediction": "/predict",
+            "documentation": "/docs"
+        }
+    }
 
 # Chargement du modèle
 BASE_DIR = Path(__file__).resolve().parent.parent
