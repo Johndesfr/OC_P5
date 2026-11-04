@@ -44,21 +44,11 @@ SALARIE_TEST = {
     "annes_sous_responsable_actuel": 5
 }
 
+
 def test_validation_salarie():
 
     response = client.post(
-        "/validate",
-        json=SALARIE_TEST
-    )
-
-    assert response.status_code == 200
-    assert response.json()["validation"] == "ok"
-
-
-def test_preparation_features():
-
-    response = client.post(
-        "/prepare",
+        "/predict",
         json=SALARIE_TEST
     )
 
@@ -66,16 +56,41 @@ def test_preparation_features():
 
     resultat = response.json()
 
-    assert resultat["nombre_features"] == 34
-    assert resultat["ordre_conforme"] is True
+    assert "score_depart" in resultat
+    assert "prediction" in resultat
+    assert "seuil_decision" in resultat
+    assert "interpretation" in resultat
 
-    calculs = resultat["features_calculees"]
+    assert resultat["prediction"] in (0, 1)
 
-    assert calculs["augmentation_salaire_precedente_pct"] == pytest.approx(11)
-    assert calculs["ratio_anciennete_experience"] == pytest.approx(0.75)
-    assert calculs["ratio_temps_poste_anciennete"] == pytest.approx(4 / 6)
-    assert calculs["ratio_promotion_anciennete"] == pytest.approx(0)
-    assert calculs["revenu_par_annee_experience"] == pytest.approx(5993 / 8)
+
+
+
+def test_preparation_features():
+
+    # Valider les données avec Pydantic
+    salarie = SalarieEntree(**SALARIE_TEST)
+
+    # Appeler directement notre fonction Python
+    X = construire_features(salarie, features)
+
+    # Vérifier les dimensions et l'ordre
+    assert X.shape == (1, 34)
+    assert list(X.columns) == list(features)
+
+    # Vérifier les calculs métier
+    ligne = X.iloc[0]
+
+    assert ligne["augmentation_salaire_precedente_pct"] == pytest.approx(11)
+
+    assert ligne["ratio_anciennete_experience"] == pytest.approx(0.75)
+
+    assert ligne["ratio_temps_poste_anciennete"] == pytest.approx(4 / 6)
+
+    assert ligne["ratio_promotion_anciennete"] == pytest.approx(0)
+
+    assert ligne["revenu_par_annee_experience"] == pytest.approx(5993 / 8)
+
     
 def test_prediction_equivalente_au_pipeline():
 
