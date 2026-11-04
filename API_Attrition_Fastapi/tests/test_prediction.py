@@ -144,4 +144,98 @@ def test_rejet_donnees_invalides(modifications):
     assert response.status_code == 422
     assert "detail" in response.json()
 
+    
+@pytest.mark.parametrize(
+    "modifications",
+    [
+        # Ancienneté entreprise > expérience totale
+        {"annees_dans_l_entreprise": 10},
+
+        # Ancienneté poste > ancienneté entreprise
+        {"annees_dans_le_poste_actuel": 7}
+    ]
+)
+def test_coherence_anciennete(modifications):
+
+    donnees = SALARIE_TEST.copy()
+    donnees.update(modifications)
+
+    response = client.post(
+        "/predict",
+        json=donnees
+    )
+
+    assert response.status_code == 422
+    assert "detail" in response.json()
+
+
+@pytest.mark.parametrize(
+    "modifications",
+    [
+        # Promotion plus ancienne que l'entrée dans l'entreprise
+        {"annees_depuis_la_derniere_promotion": 10},
+
+        # Expérience nulle, anciennetés nulles,
+        # mais revenu mensuel positif
+        {
+            "annee_experience_totale": 0,
+            "annees_dans_l_entreprise": 0,
+            "annees_dans_le_poste_actuel": 0,
+            "annees_depuis_la_derniere_promotion": 0
+        }
+    ]
+)
+def test_ratios_metier_invalides(modifications):
+
+    donnees = SALARIE_TEST.copy()
+    donnees.update(modifications)
+
+    response = client.post(
+        "/predict",
+        json=donnees
+    )
+
+    assert response.status_code == 422
+    assert "detail" in response.json()
+
+
+@pytest.mark.parametrize(
+    "champ,valeur_invalide",
+    [
+        ("genre", "X"),
+        ("statut_marital", "Inconnu"),
+        ("departement", "Informatique"),
+        ("poste", "Développeur"),
+        ("heure_supplementaires", "Peut-être"),
+        ("domaine_etude", "Physique"),
+        ("ayant_enfants", "N"),
+        ("frequence_deplacement", "Jamais")
+    ]
+)
+def test_categories_inconnues(
+    champ,
+    valeur_invalide
+):
+    # Copier le salarié valide
+    donnees = SALARIE_TEST.copy()
+
+    # Introduire une catégorie inconnue
+    donnees[champ] = valeur_invalide
+
+    # Interroger l'API
+    response = client.post(
+        "/predict",
+        json=donnees
+    )
+
+    # Vérifier le rejet par Pydantic
+    assert response.status_code == 422
+
+    # Vérifier que l'erreur concerne le bon champ
+    erreurs = response.json()["detail"]
+
+    assert any(
+        champ in erreur["loc"]
+        for erreur in erreurs
+    )
 
