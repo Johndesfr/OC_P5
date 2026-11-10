@@ -27,3 +27,20 @@ def lister_profils():
         }
         for ligne in lignes
     ]
+
+def obtenir_profil_par_id(connexion, salarie_id: int):
+    """Récupère les caractéristiques d'un salarié par son ID."""
+
+    with connexion.cursor() as curseur:
+        curseur.execute(
+            """
+            SELECT donnees
+            FROM salaries_test
+            WHERE id = %s
+            """,
+            (salarie_id,)
+        )
+
+        ligne = curseur.fetchone()
+
+    return ligne[0] if ligne else None
