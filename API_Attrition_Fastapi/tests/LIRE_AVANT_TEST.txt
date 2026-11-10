@@ -1,0 +1,4 @@
+Ces profils sont SYNTHETIQUES. Labels presumes par scenario, non verifies par le modele.
+Dans Swagger http://127.0.0.1:8000/docs, ouvrir POST /predict > Try it out > coller un fichier JSON > Execute.
+Ne pas envoyer les 10 JSON ensemble a /predict.
+Le script tester_les_10_profils.ps1 peut afficher les 10 scores si le serveur est demarre.
