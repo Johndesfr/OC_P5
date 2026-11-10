@@ -13,7 +13,8 @@ from app.database import ouvrir_connexion
 from app.profils_repository import obtenir_profil_par_id
 from app.predictions_repository import (
     enregistrer_entree,
-    enregistrer_sortie
+    enregistrer_sortie,
+    obtenir_entree_par_id,
 )
 
 # Initialisation de FastAPI
@@ -64,34 +65,58 @@ def model_info():
     }
 
 
-# Endpoint 3 : prédiction
+#
 @app.post("/predict", response_model=PredictionSortie)
-def predire_depart(salarie: SalarieEntree):
+def predire(salarie: SalarieEntree):
+    """Prédit l'attrition et trace l'opération dans PostgreSQL."""
 
-    # Transformation des données
-    X = construire_features(salarie, features)
+    with ouvrir_connexion() as connexion:
 
-    # Score de la classe 1 : départ potentiel
-    score = float(
-        pipeline.predict_proba(X)[0, 1]
-    )
+        # 1. Enregistrer les caractéristiques reçues
+        entree_id = enregistrer_entree(
+            connexion,
+            None,
+            salarie.model_dump(mode="json")
+        )
 
-    # Application du seuil métier
-    prediction = int(score >= seuil)
+        # 2. Relire les caractéristiques depuis PostgreSQL
+        donnees = obtenir_entree_par_id(
+            connexion,
+            entree_id
+        )
 
-    # Interprétation
-    interpretation = (
-        "Départ potentiel détecté"
-        if prediction == 1
-        else "Départ non détecté"
-    )
+        # 3. Reconstruire les 34 features
+        salarie_bdd = SalarieEntree.model_validate(donnees)
 
-    return PredictionSortie(
-        score_depart=score,
-        prediction=prediction,
-        interpretation=interpretation,
-        seuil_decision=seuil
-    )
+        X = construire_features(
+            salarie_bdd,
+            features
+        )
+
+        # 4. Calculer la prédiction
+        score = float(pipeline.predict_proba(X)[0, 1])
+        prediction = int(score >= seuil)
+
+        # 5. Enregistrer le résultat
+        enregistrer_sortie(
+            connexion,
+            entree_id,
+            score,
+            prediction,
+            seuil
+        )
+
+    return {
+        "score_depart": score,
+        "prediction": prediction,
+        "interpretation": (
+            "Départ potentiel détecté"
+            if prediction == 1
+            else "Départ non détecté"
+        ),
+        "seuil_decision": seuil
+    }
+
 
 @app.get("/salaries")
 def get_salaries():

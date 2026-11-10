@@ -33,3 +33,26 @@ def enregistrer_sortie(connexion, entree_id, score, prediction, seuil):
         )
 
         return curseur.fetchone()[0]
+    
+def obtenir_entree_par_id(connexion, entree_id: int):
+    """Relit les caractéristiques enregistrées dans PostgreSQL."""
+
+    with connexion.cursor() as curseur:
+        curseur.execute(
+            """
+            SELECT donnees
+            FROM predictions_entrees
+            WHERE id = %s
+            """,
+            (entree_id,)
+        )
+
+        ligne = curseur.fetchone()
+
+    if ligne is None:
+        raise LookupError(
+            f"Entrée de prédiction introuvable : {entree_id}"
+        )
+
+    return ligne[0]
+
