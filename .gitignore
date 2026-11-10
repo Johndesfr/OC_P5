@@ -20,3 +20,9 @@ poetry.toml
 # IDE
 .vscode/
 .idea/
+
+# Couverture des tests
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
