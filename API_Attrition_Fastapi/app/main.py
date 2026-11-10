@@ -6,7 +6,7 @@ from fastapi import FastAPI
 
 from .schemas import SalarieEntree, PredictionSortie
 from .features import construire_features
-
+from app.profils_repository import lister_profils
 
 # Initialisation de FastAPI
 app = FastAPI(
@@ -84,3 +84,8 @@ def predire_depart(salarie: SalarieEntree):
         interpretation=interpretation,
         seuil_decision=seuil
     )
+
+@app.get("/salaries")
+def get_salaries():
+    """Retourne les profils de salariés présents en base."""
+    return lister_profils()
