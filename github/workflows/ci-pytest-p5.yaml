@@ -1,0 +1,93 @@
+name: CI - Tests Pytest P5
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pytest-p5:
+    name: Tests Pytest - P5
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: attrition_rh
+      DB_USER: postgres
+      DB_PASSWORD: ci_only_password
+      PGPASSWORD: ci_only_password
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_only_password
+          POSTGRES_DB: attrition_rh
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d attrition_rh"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Recuperer le depot
+        uses: actions/checkout@v7
+
+      - name: Installer Python 3.14
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Installer Poetry et les dependances
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install poetry
+          poetry install --no-root --with dev
+
+      - name: Preparer les bases PostgreSQL
+        working-directory: API_Attrition_Fastapi
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+          psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c "CREATE DATABASE attrition_rh_test;"
+          psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f sql/01_schema_tests.sql
+          psql -h "$DB_HOST" -U "$DB_USER" -d attrition_rh_test -v ON_ERROR_STOP=1 -f sql/01_schema_tests.sql
+
+      - name: Importer les 10 profils de test
+        working-directory: API_Attrition_Fastapi
+        run: poetry run python -m scripts.import_profils
+
+      - name: Executer tous les tests Pytest
+        working-directory: API_Attrition_Fastapi
+        run: |
+          poetry run python -m pytest tests -v -W ignore \
+            --cov=app --cov-branch --cov-report=term-missing \
+            --cov-fail-under=0 --junitxml=pytest-results.xml
+
+      - name: Verifier au moins 24 tests reussis, sans tests ignores
+        working-directory: API_Attrition_Fastapi
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("pytest-results.xml").getroot()
+          suite = root.find("testsuite") if root.tag == "testsuites" else root
+          nb_tests = int(suite.attrib["tests"])
+          nb_ignores = int(suite.attrib.get("skipped", 0))
+          if nb_tests < 24 or nb_ignores != 0:
+              raise SystemExit(
+                  f"Echec CI : {nb_tests} tests collectes, "
+                  f"{nb_ignores} ignores (minimum 24, aucun ignore)."
+              )
+          print(f"Validation CI : {nb_tests} tests executes, aucun ignore.")
+          PY
